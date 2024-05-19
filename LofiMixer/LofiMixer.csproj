@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'DEBUG'">
+    <Reference Include="HM.AppComponents">
+		<HintPath>..\..\..\..\Library_DotNet\HM\HM.AppComponents\bin\Debug\net8.0\HM.AppComponents.dll</HintPath>
+    </Reference>
+    <Reference Include="HM.Common">
+		<HintPath>..\..\..\..\Library_DotNet\HM\HM.AppComponents\bin\Debug\net8.0\HM.Common.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+	
+  <ItemGroup Condition="'$(Configuration)' == 'RELEASE'">
+    <Reference Include="HM.AppComponents">
+		<HintPath>..\..\..\..\Library_DotNet\HM\HM.AppComponents\bin\release\net8.0\HM.AppComponents.dll</HintPath>
+    </Reference>
+    <Reference Include="HM.Common">
+		<HintPath>..\..\..\..\Library_DotNet\HM\HM.AppComponents\bin\release\net8.0\HM.Common.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
