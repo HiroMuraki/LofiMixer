@@ -1,4 +1,5 @@
-﻿using HM.Common;
+﻿using HM.AppComponents;
+using HM.Common;
 using LofiMixer.Components;
 using LofiMixer.ViewModels;
 using System.Collections.Immutable;
@@ -7,32 +8,30 @@ using System.Windows.Media;
 
 namespace LofiMixer.Wpf.Components;
 
-internal class AppMusicPlayer : IMusicPlayer
+internal class AppMusicPlayer :
+    IAppComponent,
+    ISignalReceiver<PlayMusicRequestedArgs>,
+    ISignalReceiver<MusicPlayListReloadedArgs>,
+    ISignalReceiver<StatesChanged<MusicPlayListViewModel>>
 {
-    public double Volume
+    public AppMusicPlayer()
     {
-        get => _player.GetMemberValueOr(p => p.Volume, -1);
-        set
-        {
-            _player.GetThen(p =>
-            {
-                if (value < 0)
-                {
-                    value = 0;
-                }
-                else if (value > 1)
-                {
-                    value = 1;
-                }
-
-                p.Volume = value;
-            });
-        }
+        MusicViewModel.PlayMusicRequested.Register(this);
+        MusicPlayListViewModel.MusicPlayListReloaded.Register(this);
+        MusicPlayListViewModel.StatesChanged.Register(this);
     }
 
-    public MusicLoopMode LoopMode { get; set; }
+    public void Dispose()
+    {
+        Reset();
+    }
 
-    public void Reset()
+    #region NonPublic
+    private Option<MediaPlayer> _player;
+    private int _currentMusicIndex;
+    private MusicLoopMode _loopMode;
+    private IImmutableList<MusicViewModel> _musicList = [];
+    private void Reset()
     {
         _player.GetThen(p =>
         {
@@ -42,8 +41,7 @@ internal class AppMusicPlayer : IMusicPlayer
             _player = null;
         });
     }
-
-    public void Play(MusicViewModel music)
+    private void Play(MusicViewModel music)
     {
         int index = _musicList.IndexOf(music);
         if (index == -1)
@@ -58,28 +56,6 @@ internal class AppMusicPlayer : IMusicPlayer
         _currentMusicIndex = index;
         UpdatePlayer();
     }
-
-    public void SetPlayList(IEnumerable<MusicViewModel> musicList)
-    {
-        Reset();
-
-        _musicList = musicList.ToImmutableList();
-        _player.WithValue(new MediaPlayer(), p =>
-        {
-            p.Volume = 1;
-            p.MediaEnded += PlayNextMusic;
-            p.MediaOpened += (s, _) =>
-            {
-                ((MediaPlayer)s!).Play();
-            };
-            PlayFirstMusic();
-        });
-    }
-
-    #region NonPublic
-    private Option<MediaPlayer> _player;
-    private int _currentMusicIndex;
-    private IImmutableList<MusicViewModel> _musicList = [];
     private void PlayFirstMusic()
     {
         if (_musicList.Count <= 0)
@@ -87,7 +63,7 @@ internal class AppMusicPlayer : IMusicPlayer
             return;
         }
 
-        switch (LoopMode)
+        switch (_loopMode)
         {
             case MusicLoopMode.Order:
             case MusicLoopMode.Single:
@@ -107,8 +83,8 @@ internal class AppMusicPlayer : IMusicPlayer
             return;
         }
 
-        Debug.WriteLine(LoopMode);
-        switch (LoopMode)
+        Debug.WriteLine(_loopMode);
+        switch (_loopMode)
         {
             case MusicLoopMode.Order:
                 _currentMusicIndex++;
@@ -131,6 +107,45 @@ internal class AppMusicPlayer : IMusicPlayer
             p.Open(music.MusicUri);
             music.IsSelected = true;
         });
+    }
+    void ISignalReceiver<PlayMusicRequestedArgs>.Receive(PlayMusicRequestedArgs signalArg)
+    {
+        Play(signalArg.Music);
+    }
+    void ISignalReceiver<MusicPlayListReloadedArgs>.Receive(MusicPlayListReloadedArgs signalArg)
+    {
+        Reset();
+
+        _musicList = signalArg.MusicList.ToImmutableList();
+        _player.WithValue(new MediaPlayer(), p =>
+        {
+            p.Volume = 1;
+            p.MediaEnded += PlayNextMusic;
+            p.MediaOpened += (s, _) =>
+            {
+                ((MediaPlayer)s!).Play();
+            };
+            PlayFirstMusic();
+        });
+    }
+    void ISignalReceiver<StatesChanged<MusicPlayListViewModel>>.Receive(StatesChanged<MusicPlayListViewModel> signalArg)
+    {
+        _player.GetThen(p =>
+        {
+            double musicVolume = signalArg.Sender.MusicVolume;
+            if (musicVolume < 0)
+            {
+                musicVolume = 0;
+            }
+            else if (musicVolume > 1)
+            {
+                musicVolume = 1;
+            }
+
+            p.Volume = musicVolume;
+        });
+
+        _loopMode = signalArg.Sender.MusicLoopMode;
     }
     #endregion
 }

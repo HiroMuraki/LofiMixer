@@ -1,6 +1,4 @@
-﻿using System.Windows;
-
-namespace LofiMixer.Wpf;
+﻿namespace LofiMixer.Wpf;
 
 public partial class MainWindow : HandyControl.Controls.Window
 {

@@ -1,12 +1,27 @@
-﻿using LofiMixer.Components;
+﻿using HM.AppComponents;
 using LofiMixer.ViewModels;
 using System.Windows.Media;
 
 namespace LofiMixer.Wpf.Components;
 
-internal class AppAmbientRemixer : IAmbientRemixer
+internal class AppAmbientRemixer :
+    IAppComponent,
+    ISignalReceiver<StatesChanged<AmbientSoundViewModel>>,
+    ISignalReceiver<AmbientMixerResetArgs>
 {
-    public void Reset()
+    public AppAmbientRemixer()
+    {
+        AmbientSoundViewModel.StateChanged.Register(this);
+    }
+
+    public void Dispose()
+    {
+        Reset();
+    }
+
+    #region NonPublic
+    private readonly List<MediaPlayer> _remixPlayers = [];
+    private void Reset()
     {
         foreach (MediaPlayer player in _remixPlayers)
         {
@@ -17,8 +32,7 @@ internal class AppAmbientRemixer : IAmbientRemixer
         }
         _remixPlayers.Clear();
     }
-
-    public void Remix(AmbientSoundViewModel ambientSound)
+    private void Remix(AmbientSoundViewModel ambientSound)
     {
         MediaPlayer? player = _remixPlayers.FirstOrDefault(x => x.Source.AbsolutePath == ambientSound.MusicUri.AbsolutePath);
         if (player is null)
@@ -41,13 +55,18 @@ internal class AppAmbientRemixer : IAmbientRemixer
             player.IsMuted = ambientSound.Volume <= 0;
         }
     }
-
-    #region NonPublic
-    private readonly List<MediaPlayer> _remixPlayers = [];
     private static void ReplaySound(object? sender, EventArgs e)
     {
         ((MediaPlayer)sender!).Position = TimeSpan.Zero;
         ((MediaPlayer)sender!).Play();
+    }
+    void ISignalReceiver<StatesChanged<AmbientSoundViewModel>>.Receive(StatesChanged<AmbientSoundViewModel> signalArg)
+    {
+        Remix(signalArg.Sender);
+    }
+    void ISignalReceiver<AmbientMixerResetArgs>.Receive(AmbientMixerResetArgs signalArg)
+    {
+        Reset();
     }
     #endregion
 }
