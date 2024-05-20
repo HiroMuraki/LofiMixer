@@ -1,6 +1,4 @@
-﻿using LofiMixer.Components;
-
-namespace LofiMixer.Models;
+﻿namespace LofiMixer.Models;
 
 public sealed record class AppDataModel
 {

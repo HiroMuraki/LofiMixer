@@ -1,6 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using HM.AppComponents;
-using LofiMixer.Components;
+using LofiMixer.Models;
 using System.Collections.ObjectModel;
 
 namespace LofiMixer.ViewModels;

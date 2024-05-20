@@ -1,4 +1,4 @@
-﻿namespace LofiMixer.Components;
+﻿namespace LofiMixer.Models;
 
 public enum MusicLoopMode
 {
