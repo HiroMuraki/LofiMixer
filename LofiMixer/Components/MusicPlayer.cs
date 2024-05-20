@@ -102,6 +102,7 @@ public sealed class MusicPlayer :
             MusicViewModel music = _musicList[_currentMusicIndex];
             p.Open(music.MusicUri);
             music.IsSelected = true;
+            p.Play();
         });
     }
     private void HandlePlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)

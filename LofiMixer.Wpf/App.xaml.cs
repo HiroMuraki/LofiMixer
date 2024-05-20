@@ -15,8 +15,8 @@ public partial class App : Application
     {
         LofiMixer.App.Current.Components.Add(new AmbientRemixer());
         LofiMixer.App.Current.Components.Add(new MusicPlayer());
-        LofiMixer.App.Current.ServiceProvider.RegisterService(new NAudioPlayer.Factory());
-        LofiMixer.App.Current.ServiceProvider.RegisterService(ErrorNotifier.Create(e =>
+        LofiMixer.App.Current.ServiceProvider.RegisterService<IAudioPlayerFactory>(new NAudioPlayer.Factory());
+        LofiMixer.App.Current.ServiceProvider.RegisterService<IErrorNotifier>(ErrorNotifier.Create(e =>
         {
             Debug.WriteLine(e);
         }));

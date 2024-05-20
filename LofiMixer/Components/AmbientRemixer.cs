@@ -52,6 +52,7 @@ public sealed class AmbientRemixer :
                 player.Open(ambientSound.MusicUri);
                 player.Volume = ambientSound.Volume;
                 player.LoopPlay = true;
+                player.Play();
                 _remixPlayers.Add(player);
             });
         });

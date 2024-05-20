@@ -8,14 +8,14 @@ internal class SwitchEnumValue : Behavior<ButtonBase>
 {
     public static readonly DependencyProperty EnumValueProperty = DependencyProperty.Register(
         nameof(EnumValue),
-        typeof(Enum),
+        typeof(object),
         typeof(SwitchEnumValue),
         new FrameworkPropertyMetadata(default, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault)
     );
 
-    public Enum EnumValue
+    public object EnumValue
     {
-        get => (Enum)GetValue(EnumValueProperty);
+        get => GetValue(EnumValueProperty);
         set => SetValue(EnumValueProperty, value);
     }
 

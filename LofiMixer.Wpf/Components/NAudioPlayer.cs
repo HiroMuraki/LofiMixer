@@ -79,6 +79,7 @@ public sealed class NAudioPlayer : IAudioPlayer
         wavePlayer.PlaybackStopped += (_, _) =>
         {
             OnPlaybackStateChanged(PlaybackState.Stopped);
+            OnPlaybackStateChanged(PlaybackState.Finished);
         };
         wavePlayer.Init(waveStream);
 
