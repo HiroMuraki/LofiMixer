@@ -1,4 +1,5 @@
-﻿using HM.AppComponents.AppService;
+﻿using HM.AppComponents;
+using HM.AppComponents.AppService;
 using LofiMixer.ViewModels;
 
 namespace LofiMixer;
@@ -10,4 +11,6 @@ public sealed class App
     public AppServiceProvider ServiceProvider { get; } = new();
 
     public AppPaths AppPaths { get; } = new();
+
+    public AppComponentCollection Components { get; } = [];
 }

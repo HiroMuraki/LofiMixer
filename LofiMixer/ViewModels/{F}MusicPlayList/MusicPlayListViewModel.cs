@@ -5,8 +5,22 @@ using System.Collections.ObjectModel;
 
 namespace LofiMixer.ViewModels;
 
+public sealed class MusicPlayListReloadedArgs
+{
+    public MusicPlayListReloadedArgs(IReadOnlyCollection<MusicViewModel> musicList)
+    {
+        MusicList = musicList.ToArray();
+    }
+
+    public IReadOnlyCollection<MusicViewModel> MusicList { get; }
+}
+
 public sealed class MusicPlayListViewModel : ObservableObject
 {
+    public static Signal<StatesChanged<MusicPlayListViewModel>> StatesChanged { get; } = new();
+
+    public static Signal<MusicPlayListReloadedArgs> MusicPlayListReloaded { get; } = new();
+
     public IEnumerable<MusicViewModel> MusicList => _musicList;
 
     public MusicLoopMode MusicLoopMode
@@ -15,10 +29,7 @@ public sealed class MusicPlayListViewModel : ObservableObject
         set
         {
             SetProperty(ref _musicLoopMode, value);
-            ServiceHelper.ActWith<IMusicPlayer>(x =>
-            {
-                x.LoopMode = _musicLoopMode;
-            });
+            StatesChanged.Emit(new StatesChanged<MusicPlayListViewModel>(this));
         }
     }
 
@@ -37,10 +48,7 @@ public sealed class MusicPlayListViewModel : ObservableObject
             }
 
             SetProperty(ref _musicVolume, value);
-            ServiceHelper.ActWith<IMusicPlayer>(x =>
-            {
-                x.Volume = MusicVolume;
-            });
+            StatesChanged.Emit(new StatesChanged<MusicPlayListViewModel>(this));
         }
     }
 
@@ -62,13 +70,8 @@ public sealed class MusicPlayListViewModel : ObservableObject
             await Task.Delay(1);
         }
 
-        ServiceHelper.ActWith<IMusicPlayer>(x =>
-        {
-            x.Reset();
-            x.LoopMode = MusicLoopMode;
-            x.Volume = MusicVolume;
-            x.SetPlayList(MusicList.ToArray());
-        });
+        StatesChanged.Emit(new StatesChanged<MusicPlayListViewModel>(this));
+        MusicPlayListReloaded.Emit(new MusicPlayListReloadedArgs(_musicList));
     }
 
     #region NonPublic

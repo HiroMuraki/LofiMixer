@@ -6,8 +6,20 @@ using LofiMixer.Components;
 
 namespace LofiMixer.ViewModels;
 
+public sealed class PlayMusicRequestedArgs
+{
+    public PlayMusicRequestedArgs(MusicViewModel music)
+    {
+        Music = music;
+    }
+
+    public MusicViewModel Music { get; }
+}
+
 public sealed class MusicViewModel : ObservableObject, IMutexSelectable
 {
+    public static Signal<PlayMusicRequestedArgs> PlayMusicRequested { get; } = new();
+
     public MusicViewModel(Uri musicFile, MutexSelector? mutexSelector)
     {
         _musicUri = musicFile;
@@ -57,10 +69,7 @@ public sealed class MusicViewModel : ObservableObject, IMutexSelectable
 
     public void Play()
     {
-        App.Current.ServiceProvider.GetServiceThen<IMusicPlayer>(x =>
-        {
-            x.Play(this);
-        });
+        PlayMusicRequested.Emit(new PlayMusicRequestedArgs(this));
     }
 
     #region NonPublic

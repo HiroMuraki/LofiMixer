@@ -1,10 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using LofiMixer.Components;
+using HM.AppComponents;
 
 namespace LofiMixer.ViewModels;
 
 public sealed class AmbientSoundViewModel : ObservableObject
 {
+    public static Signal<StatesChanged<AmbientSoundViewModel>> StateChanged { get; } = new();
+
     public AmbientSoundViewModel(Uri musicUri)
     {
         _musicUri = musicUri;
@@ -37,10 +39,7 @@ public sealed class AmbientSoundViewModel : ObservableObject
             }
 
             SetProperty(ref _volume, value);
-            ServiceHelper.ActWith<IAmbientRemixer>(x =>
-            {
-                x.Remix(this);
-            });
+            StateChanged.Emit(new StatesChanged<AmbientSoundViewModel>(this));
         }
     }
 
