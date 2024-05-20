@@ -13,7 +13,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public async Task SaveStatesAsync()
     {
-        var appDataSerializer = AppDataJsonSerializer.Create(App.Current.AppPaths.ConfigFile.Path);
+        var appDataSerializer = AppDataJsonSerializer.Create(App.Current.AppPaths[App.PathNames.ConfigFile].Path);
 
         var appData = new AppDataModel()
         {
@@ -28,7 +28,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public async Task LoadStatesAsync()
     {
-        var appDataSerializer = AppDataJsonSerializer.Create(App.Current.AppPaths.ConfigFile.Path);
+        var appDataSerializer = AppDataJsonSerializer.Create(App.Current.AppPaths[App.PathNames.ConfigFile].Path);
 
         await AmbientMixer.ReloadAmbientSoundsAsync();
         await MusicPlayList.ReloadMusicListAsync();
@@ -39,7 +39,7 @@ public sealed class MainWindowViewModel : ObservableObject
                 MusicPlayList.MusicVolume = d.MusicVolume;
                 MusicPlayList.MusicLoopMode = d.MusicLoopMode;
                 var ambientSoundNameMap = AmbientMixer.AmbientSounds.ToDictionary(k => k.Name, v => v);
-                foreach ((string name, double volume) in d.AmbientSoundVolumes)
+                foreach ((string name, float volume) in d.AmbientSoundVolumes)
                 {
                     Option<AmbientSoundViewModel> ambientSound = ambientSoundNameMap.GetValueOrDefault(name);
                     ambientSound.GetThen(a =>

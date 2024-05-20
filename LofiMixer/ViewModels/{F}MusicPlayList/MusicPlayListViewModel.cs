@@ -33,7 +33,7 @@ public sealed class MusicPlayListViewModel : ObservableObject
         }
     }
 
-    public double MusicVolume
+    public float MusicVolume
     {
         get => _musicVolume;
         set
@@ -54,8 +54,7 @@ public sealed class MusicPlayListViewModel : ObservableObject
 
     internal async Task ReloadMusicListAsync()
     {
-        string[] musicFiles = App.Current.AppPaths
-            .MusicDirectory
+        string[] musicFiles = App.Current.AppPaths[App.PathNames.MusicDirectory]
             .EnumerateFiles()
             .Where(x => _supportedMusicFormats.Contains(Path.GetExtension(x), StringComparer.OrdinalIgnoreCase))
             .ToArray();
@@ -64,7 +63,7 @@ public sealed class MusicPlayListViewModel : ObservableObject
         var mutexSelector = new MutexSelector();
         foreach (string musicFile in musicFiles)
         {
-            var musicUri = new Uri(App.Current.AppPaths.MusicDirectory.GetSubPath(musicFile), UriKind.Absolute);
+            var musicUri = new Uri(App.Current.AppPaths[App.PathNames.MusicDirectory].GetSubPath(musicFile), UriKind.Absolute);
             var music = new MusicViewModel(musicUri, mutexSelector);
             _musicList.Add(music);
             await Task.Delay(1);
@@ -80,7 +79,7 @@ public sealed class MusicPlayListViewModel : ObservableObject
         ".mp3", ".ogg",
     ];
     private readonly ObservableCollection<MusicViewModel> _musicList = [];
-    private double _musicVolume = 1;
+    private float _musicVolume = 1;
     private MusicLoopMode _musicLoopMode = MusicLoopMode.Order;
     #endregion
 }

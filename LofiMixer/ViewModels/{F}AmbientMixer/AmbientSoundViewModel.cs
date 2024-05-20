@@ -24,7 +24,7 @@ public sealed class AmbientSoundViewModel : ObservableObject
         set => SetProperty(ref _musicUri, value);
     }
 
-    public double Volume
+    public float Volume
     {
         get => _volume;
         set
@@ -44,7 +44,7 @@ public sealed class AmbientSoundViewModel : ObservableObject
     }
 
     #region NonPublic
-    private double _volume;
+    private float _volume;
     private Uri _musicUri;
     private string _name = string.Empty;
     #endregion

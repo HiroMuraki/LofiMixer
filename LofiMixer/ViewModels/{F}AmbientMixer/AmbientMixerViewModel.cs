@@ -25,14 +25,14 @@ public sealed class AmbientMixerViewModel : ObservableObject
     internal async Task ReloadAmbientSoundsAsync()
     {
         var appDataSerializer = AppDataJsonSerializer.Create(
-            App.Current.AppPaths.AmbientSoundDirectory.GetSubPath("Items.json"));
+            App.Current.AppPaths[App.PathNames.AmbientSoundDirectory].GetSubPath("Items.json"));
 
         _ambientSounds.Clear();
         await appDataSerializer.LoadAsync<AmbientSoundModel[]>(data =>
         {
             foreach (AmbientSoundModel model in data.GetOr(() => []))
             {
-                var musicUri = new Uri(App.Current.AppPaths.AmbientSoundDirectory.GetSubPath(model.SoundFileName), UriKind.Absolute);
+                var musicUri = new Uri(App.Current.AppPaths[App.PathNames.AmbientSoundDirectory].GetSubPath(model.SoundFileName), UriKind.Absolute);
                 var ambientSound = new AmbientSoundViewModel(musicUri)
                 {
                     Name = model.Name,
