@@ -1,6 +1,6 @@
 ﻿using HM.AppComponents;
 using HM.Common;
-using LofiMixer.Components;
+using LofiMixer.Models;
 using LofiMixer.ViewModels;
 using System.Collections.Immutable;
 using System.Diagnostics;

@@ -1,6 +1,6 @@
-﻿using LofiMixer.Components;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows.Data;
+using LofiMixer.Models;
 
 namespace LofiMixer.Wpf.ValueConverters;
 
