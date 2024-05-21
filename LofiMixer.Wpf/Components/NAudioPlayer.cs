@@ -14,25 +14,28 @@ public sealed class NAudioPlayer : IAudioPlayer
 
     public event EventHandler<PlaybackStateChangedEventArgs>? PlaybackStateChanged;
 
-    public Option<Uri> SourceAudioFile { get; private set; }
+    public Uri? SourceAudioFile { get; private set; }
 
-    public TimeSpan TotalTime => _waveStream.GetMemberValueOr(x => TotalTime, TimeSpan.Zero);
+    public TimeSpan TotalTime => _waveStream?.TotalTime ?? TimeSpan.Zero;
 
     public TimeSpan CurrentTime
     {
-        get => _waveStream.GetMemberValueOr(x => x.CurrentTime, TimeSpan.Zero);
+        get => _waveStream?.CurrentTime ?? TimeSpan.Zero;
         set
         {
-            _waveStream.GetThen(x => x.CurrentTime = value);
+            if (_waveStream is not null)
+            {
+                _waveStream.CurrentTime = value;
+            }
         }
     }
 
     public float Volume
     {
-        get => _wavePlayer.GetMemberValueOr(x => x.Volume, 0);
+        get => _wavePlayer?.Volume ?? 0;
         set
         {
-            _wavePlayer.GetThen(x =>
+            if (_wavePlayer is not null)
             {
                 if (value < 0)
                 {
@@ -43,8 +46,8 @@ public sealed class NAudioPlayer : IAudioPlayer
                     value = 1;
                 }
 
-                x.Volume = value;
-            });
+                _wavePlayer.Volume = value;
+            }
         }
     }
 
@@ -55,17 +58,17 @@ public sealed class NAudioPlayer : IAudioPlayer
         {
             _loopPlay = value;
 
-            Option.AllThen(_wavePlayer, _waveStream, (wavePlayer, waveStream) =>
+            if (_wavePlayer is not null)
             {
                 if (_loopPlay)
                 {
-                    wavePlayer.PlaybackStopped += Replay;
+                    _wavePlayer.PlaybackStopped += Replay;
                 }
                 else
                 {
-                    wavePlayer.PlaybackStopped -= Replay;
+                    _wavePlayer.PlaybackStopped -= Replay;
                 }
-            });
+            }
         }
     }
 
@@ -89,53 +92,46 @@ public sealed class NAudioPlayer : IAudioPlayer
 
     public void Play()
     {
-        _wavePlayer.GetThen(x =>
+        if (_wavePlayer is not null)
         {
-            if (x.PlaybackState == NAudio.Wave.PlaybackState.Playing)
+            if (_wavePlayer.PlaybackState == NAudio.Wave.PlaybackState.Playing)
             {
                 return;
             }
-            x.Play();
+            _wavePlayer.Play();
             OnPlaybackStateChanged(PlaybackState.Playing);
-        });
+        }
     }
 
     public void Pause()
     {
-        _wavePlayer.GetThen(x =>
+        if (_wavePlayer?.PlaybackState == NAudio.Wave.PlaybackState.Playing)
         {
-            if (x.PlaybackState == NAudio.Wave.PlaybackState.Playing)
-            {
-                x.Pause();
-                OnPlaybackStateChanged(PlaybackState.Paused);
-            }
-        });
+            _wavePlayer.Pause();
+            OnPlaybackStateChanged(PlaybackState.Paused);
+        }
     }
 
     public void Stop()
     {
-        _wavePlayer.GetThen(x =>
+        if (_wavePlayer is not null)
         {
-            x.Stop();
+            _wavePlayer.Stop();
             OnPlaybackStateChanged(PlaybackState.Stopped);
-        });
+        }
     }
 
     public void Close()
     {
         SourceAudioFile = null;
-        _wavePlayer.GetThen(x =>
-        {
-            x.Stop();
-            x.Dispose();
-            _wavePlayer = null;
-        });
-        _waveStream.GetThen(x =>
-        {
-            x.Close();
-            x.Dispose();
-            _waveStream = null;
-        });
+
+        _wavePlayer?.Stop();
+        _wavePlayer?.Dispose();
+        _wavePlayer = null;
+
+        _waveStream?.Close();
+        _waveStream?.Dispose();
+        _waveStream = null;
     }
 
     public void Dispose()
@@ -145,15 +141,15 @@ public sealed class NAudioPlayer : IAudioPlayer
 
     #region NonPublic
     private bool _loopPlay;
-    private Option<IWavePlayer> _wavePlayer;
-    private Option<WaveStream> _waveStream;
+    private IWavePlayer? _wavePlayer;
+    private WaveStream? _waveStream;
     private void Replay(object? sender, StoppedEventArgs e)
     {
-        Option.AllThen(_wavePlayer, _waveStream, (wavePlayer, waveStream) =>
+        if (_waveStream is not null)
         {
-            waveStream.Position = 0;
-            wavePlayer.Play();
-        });
+            _waveStream.Position = 0;
+        }
+        _wavePlayer?.Play();
     }
     private void OnPlaybackStateChanged(PlaybackState state)
     {

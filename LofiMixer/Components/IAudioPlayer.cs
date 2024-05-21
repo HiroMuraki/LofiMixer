@@ -24,7 +24,7 @@ public interface IAudioPlayer : IDisposable
 {
     event EventHandler<PlaybackStateChangedEventArgs>? PlaybackStateChanged;
 
-    Option<Uri> SourceAudioFile { get; }
+    Uri? SourceAudioFile { get; }
 
     TimeSpan CurrentTime { get; set; }
 

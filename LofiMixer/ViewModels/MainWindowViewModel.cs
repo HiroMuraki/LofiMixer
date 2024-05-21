@@ -34,24 +34,23 @@ public sealed class MainWindowViewModel : ObservableObject
         await MusicPlayList.ReloadMusicListAsync();
         await appDataSerializer.LoadAsync<AppDataModel>(data =>
         {
-            data.GetThen(d =>
+            if (data is null)
             {
-                MusicPlayList.MusicVolume = d.MusicVolume;
-                MusicPlayList.MusicLoopMode = d.MusicLoopMode;
-                var ambientSoundNameMap = AmbientMixer.AmbientSounds.ToDictionary(k => k.Name, v => v);
-                foreach ((string name, float volume) in d.AmbientSoundVolumes)
+                return;
+            }
+
+            MusicPlayList.MusicVolume = data.MusicVolume;
+            MusicPlayList.MusicLoopMode = data.MusicLoopMode;
+            var ambientSoundNameMap = AmbientMixer.AmbientSounds.ToDictionary(k => k.Name, v => v);
+            foreach ((string name, float volume) in data.AmbientSoundVolumes)
+            {
+                AmbientSoundViewModel? ambientSound = ambientSoundNameMap.GetValueOrDefault(name);
+                if (ambientSound is not null)
                 {
-                    Option<AmbientSoundViewModel> ambientSound = ambientSoundNameMap.GetValueOrDefault(name);
-                    ambientSound.GetThen(a =>
-                    {
-                        a.Volume = volume;
-                    });
+                    ambientSound.Volume = volume;
                 }
-                MusicPlayList.MusicList.FirstOrDefault(m => m.MusicName == d.MusicFileName).AsOption().GetThen(x =>
-                {
-                    x.Play();
-                });
-            });
+            }
+            MusicPlayList.MusicList.FirstOrDefault(m => m.MusicName == data.MusicFileName)?.Play();
         });
     }
 }

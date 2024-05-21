@@ -37,20 +37,21 @@ public sealed class MusicViewModel : ObservableObject, IMutexSelectable
         get => _isSelected;
         set
         {
-            _mutexSelector.GetThen(m =>
+            if (_mutexSelector is not null)
             {
                 if (value)
                 {
-                    this.MutexSelect(m);
+                    this.MutexSelect(_mutexSelector);
                 }
                 else
                 {
-                    this.MutexUnselect(m);
+                    this.MutexUnselect(_mutexSelector);
                 }
-            }).Else(() =>
+            }
+            else
             {
                 SetProperty(ref _isSelected, value);
-            });
+            }
 
             if (_isSelected)
             {
@@ -71,7 +72,7 @@ public sealed class MusicViewModel : ObservableObject, IMutexSelectable
     }
 
     #region NonPublic
-    private readonly Option<MutexSelector> _mutexSelector;
+    private readonly MutexSelector? _mutexSelector;
     private Uri _musicUri;
     private bool _isSelected;
     #endregion

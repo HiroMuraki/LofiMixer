@@ -26,17 +26,14 @@ public sealed class MusicPlayer :
     }
 
     #region NonPublic
-    private Option<IAudioPlayer> _player;
+    private IAudioPlayer? _player;
     private int _currentMusicIndex;
     private MusicLoopMode _loopMode;
     private IImmutableList<MusicViewModel> _musicList = [];
     private void Reset()
     {
-        _player.GetThen(p =>
-        {
-            p.Dispose();
-            _player = null;
-        });
+        _player?.Dispose();
+        _player = null;
     }
     private void Play(MusicViewModel music)
     {
@@ -97,13 +94,10 @@ public sealed class MusicPlayer :
     private void UpdatePlayer()
     {
         _currentMusicIndex %= _musicList.Count;
-        _player.GetThen(p =>
-        {
-            MusicViewModel music = _musicList[_currentMusicIndex];
-            p.Open(music.MusicUri);
-            music.IsSelected = true;
-            p.Play();
-        });
+        MusicViewModel music = _musicList[_currentMusicIndex];
+        music.IsSelected = true;
+        _player?.Open(music.MusicUri);
+        _player?.Play();
     }
     private void HandlePlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)
     {
@@ -129,16 +123,15 @@ public sealed class MusicPlayer :
         _musicList = signalArg.MusicList.ToImmutableList();
         App.Current.ServiceProvider.GetServiceThen<IAudioPlayerFactory>(audioPlayerFactory =>
         {
-            IAudioPlayer player = audioPlayerFactory.CreatePlayer();
-            player.Volume = 1;
-            player.PlaybackStateChanged += HandlePlaybackStateChanged;
-            _player = new Option<IAudioPlayer>(player);
+            _player = audioPlayerFactory.CreatePlayer();
+            _player.Volume = 1;
+            _player.PlaybackStateChanged += HandlePlaybackStateChanged;
             PlayFirstMusic();
         });
     }
     void ISignalReceiver<StatesChanged<MusicPlayListViewModel>>.Receive(StatesChanged<MusicPlayListViewModel> signalArg)
     {
-        _player.GetThen(p =>
+        if (_player is not null)
         {
             float musicVolume = signalArg.Sender.MusicVolume;
             if (musicVolume < 0)
@@ -150,8 +143,8 @@ public sealed class MusicPlayer :
                 musicVolume = 1;
             }
 
-            p.Volume = musicVolume;
-        });
+            _player.Volume = musicVolume;
+        }
 
         _loopMode = signalArg.Sender.MusicLoopMode;
     }

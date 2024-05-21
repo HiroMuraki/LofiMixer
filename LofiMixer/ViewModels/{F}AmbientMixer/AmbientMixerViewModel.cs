@@ -30,7 +30,12 @@ public sealed class AmbientMixerViewModel : ObservableObject
         _ambientSounds.Clear();
         await appDataSerializer.LoadAsync<AmbientSoundModel[]>(data =>
         {
-            foreach (AmbientSoundModel model in data.GetOr(() => []))
+            if (data is null)
+            {
+                return;
+            }
+
+            foreach (AmbientSoundModel model in data)
             {
                 var musicUri = new Uri(App.Current.AppPaths[App.PathNames.AmbientSoundDirectory].GetSubPath(model.SoundFileName), UriKind.Absolute);
                 var ambientSound = new AmbientSoundViewModel(musicUri)

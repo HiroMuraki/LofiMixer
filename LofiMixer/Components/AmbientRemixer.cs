@@ -32,14 +32,14 @@ public sealed class AmbientRemixer :
     }
     private void Remix(AmbientSoundViewModel ambientSound)
     {
-        Option<IAudioPlayer> player = _remixPlayers
-            .FirstOrDefault(x => x.SourceAudioFile.GetMemberValueOr(x => x.AbsolutePath, null) == ambientSound.MusicUri.AbsolutePath)
-            .AsOption();
+        IAudioPlayer? player = _remixPlayers
+            .FirstOrDefault(x => x.SourceAudioFile?.AbsolutePath == ambientSound.MusicUri.AbsolutePath);
 
-        player.GetThen(p =>
+        if (player is not null)
         {
-            p.Volume = ambientSound.Volume;
-        }).Else(() =>
+            player.Volume = ambientSound.Volume;
+        }
+        else
         {
             if (ambientSound.MusicUri.IsFile && !File.Exists(ambientSound.MusicUri.LocalPath))
             {
@@ -55,7 +55,7 @@ public sealed class AmbientRemixer :
                 player.Play();
                 _remixPlayers.Add(player);
             });
-        });
+        }
     }
     void ISignalReceiver<StatesChanged<AmbientSoundViewModel>>.Receive(StatesChanged<AmbientSoundViewModel> signalArg)
     {

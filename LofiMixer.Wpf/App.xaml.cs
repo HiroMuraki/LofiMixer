@@ -36,7 +36,7 @@ public partial class App : Application
 
     private async void Application_Exit(object sender, ExitEventArgs e)
     {
-        await _mainWindowViewModel.GetThenAsync(x => x.SaveStatesAsync());
+        await (_mainWindowViewModel?.SaveStatesAsync() ?? Task.CompletedTask);
         foreach (IAppComponent component in LofiMixer.App.Current.Components)
         {
             component.Dispose();
@@ -44,7 +44,7 @@ public partial class App : Application
     }
 
     #region NonPublic
-    private Option<MainWindowViewModel> _mainWindowViewModel;
+    private MainWindowViewModel? _mainWindowViewModel;
     #endregion
 }
 
