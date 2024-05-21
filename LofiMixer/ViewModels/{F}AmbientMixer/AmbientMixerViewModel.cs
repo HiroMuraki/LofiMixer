@@ -34,7 +34,7 @@ public sealed class AmbientMixerViewModel : ObservableObject
         });
         App.Current.Signals.AmbientSoundsReloaded.Emit(new()
         {
-            AmbientSoundFiles = [_ambientSounds.Select(x => x.SoundUri).First()]
+            AmbientSoundFiles = _ambientSounds.Select(x => x.SoundUri).ToList()
         });
     }
 

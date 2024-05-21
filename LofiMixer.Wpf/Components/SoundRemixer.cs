@@ -144,7 +144,11 @@ public sealed class SoundRemixer :
             _wavePlayer = new WaveOutEvent();
             _wavePlayer.PlaybackStopped += (_, e) =>
             {
-                Debug.WriteLine("Next");
+                if (_currentAudioFile?.CurrentTime >= _currentAudioFile?.TotalTime)
+                {
+                    NextMusicIndex();
+                    Play();
+                }
             };
             _currentAudioFile = new AudioFileReader(_musicFiles[_currentMusicIndex].LocalPath);
             _wavePlayer.Init(_currentAudioFile);
@@ -162,14 +166,21 @@ public sealed class SoundRemixer :
     {
         public AmbientSoundMixer(IEnumerable<Uri> ambientSoundFiles)
         {
-            _mixingSampleProvider = new MixingSampleProvider(
-                    ambientSoundFiles.Select(x => new AudioFileReader(x.LocalPath)));
+            var normalizedWaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(44100, 2);
+            AmbientSoundSampleProvider[] sampleProviders = ambientSoundFiles
+                .Select(x =>
+                {
+                    using var audioFile = new AudioFileReader(x.LocalPath);
+                    var resampler = new MediaFoundationResampler(audioFile, normalizedWaveFormat);
+                    return new AmbientSoundSampleProvider(x, resampler.ToSampleProvider());
+                }).ToArray();
+            _mixingSampleProvider = new MixingSampleProvider(sampleProviders);
             _mixingSampleProvider.MixerInputEnded += (s, e) =>
             {
-                ((AudioFileReader)e.SampleProvider!).Position = 0;
-                _mixingSampleProvider.AddMixerInput(e.SampleProvider);
+                throw new NotImplementedException("TODO");
+                //((AudioFileReader)e.SampleProvider!).Position = 0;
+                //_mixingSampleProvider.AddMixerInput(e.SampleProvider);
             };
-
             _mixedAmbientSoundPlayer = new WaveOutEvent();
             _mixedAmbientSoundPlayer.Init(_mixingSampleProvider);
             _mixedAmbientSoundPlayer.Play();
@@ -177,8 +188,9 @@ public sealed class SoundRemixer :
 
         public void SetChannelVolume(Uri musicFile, float? volume)
         {
-            AudioFileReader? targetAudio = _mixingSampleProvider?.MixerInputs.Cast<AudioFileReader>()
-            .FirstOrDefault(x => x.FileName == musicFile.LocalPath);
+            AmbientSoundSampleProvider? targetAudio = _mixingSampleProvider?.MixerInputs
+                .Cast<AmbientSoundSampleProvider>()
+                .FirstOrDefault(x => x.SourceUri == musicFile);
 
             if (targetAudio is not null && volume.HasValue)
             {
@@ -201,21 +213,22 @@ public sealed class SoundRemixer :
         private MixingSampleProvider? _mixingSampleProvider;
         private void Reset()
         {
-            if (_mixingSampleProvider is not null)
-            {
-                foreach (AudioFileReader item in _mixingSampleProvider.MixerInputs.Cast<AudioFileReader>())
-                {
-                    item.Close();
-                    item.Dispose();
-                }
-                _mixingSampleProvider.RemoveAllMixerInputs();
-                _mixingSampleProvider = null;
-            }
+            _mixingSampleProvider?.RemoveAllMixerInputs();
+            _mixingSampleProvider = null;
 
             _mixedAmbientSoundPlayer?.Stop();
             _mixedAmbientSoundPlayer?.Dispose();
             _mixedAmbientSoundPlayer = null;
 
+        }
+        private class AmbientSoundSampleProvider : VolumeSampleProvider
+        {
+            public AmbientSoundSampleProvider(Uri sourceUri, ISampleProvider source) : base(source)
+            {
+                SourceUri = sourceUri;
+            }
+
+            public Uri SourceUri { get; }
         }
         #endregion
     }
