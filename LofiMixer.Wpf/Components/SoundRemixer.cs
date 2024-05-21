@@ -6,7 +6,6 @@ using LofiMixer.Models;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using System.Collections.Immutable;
-using System.Diagnostics;
 
 namespace LofiMixer.Wpf.Components;
 
@@ -61,7 +60,6 @@ public sealed class SoundRemixer :
         _ambientSoundMixer?.Dispose();
         _ambientSoundMixer = new AmbientSoundMixer(signalArg.AmbientSoundFiles);
     }
-
     private sealed class MusicPlayer : IDisposable
     {
         public MusicPlayer(IEnumerable<Uri> musicFiles)
@@ -161,26 +159,15 @@ public sealed class SoundRemixer :
         }
         #endregion
     }
-
     private sealed class AmbientSoundMixer : IDisposable
     {
         public AmbientSoundMixer(IEnumerable<Uri> ambientSoundFiles)
         {
             var normalizedWaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(44100, 2);
             AmbientSoundSampleProvider[] sampleProviders = ambientSoundFiles
-                .Select(x =>
-                {
-                    using var audioFile = new AudioFileReader(x.LocalPath);
-                    var resampler = new MediaFoundationResampler(audioFile, normalizedWaveFormat);
-                    return new AmbientSoundSampleProvider(x, resampler.ToSampleProvider());
-                }).ToArray();
+                .Select(x => new AmbientSoundSampleProvider(x, normalizedWaveFormat))
+                .ToArray();
             _mixingSampleProvider = new MixingSampleProvider(sampleProviders);
-            _mixingSampleProvider.MixerInputEnded += (s, e) =>
-            {
-                throw new NotImplementedException("TODO");
-                //((AudioFileReader)e.SampleProvider!).Position = 0;
-                //_mixingSampleProvider.AddMixerInput(e.SampleProvider);
-            };
             _mixedAmbientSoundPlayer = new WaveOutEvent();
             _mixedAmbientSoundPlayer.Init(_mixingSampleProvider);
             _mixedAmbientSoundPlayer.Play();
@@ -221,14 +208,60 @@ public sealed class SoundRemixer :
             _mixedAmbientSoundPlayer = null;
 
         }
-        private class AmbientSoundSampleProvider : VolumeSampleProvider
+        private class AmbientSoundSampleProvider :
+            ISampleProvider,
+            IDisposable
         {
-            public AmbientSoundSampleProvider(Uri sourceUri, ISampleProvider source) : base(source)
+            public AmbientSoundSampleProvider(Uri sourceUri, WaveFormat waveFormat)
             {
                 SourceUri = sourceUri;
+                _audioFileReader = new AudioFileReader(sourceUri.LocalPath);
+                var resampler = new MediaFoundationResampler(_audioFileReader, waveFormat)
+                {
+                    ResamplerQuality = 60
+                };
+                _outputSampleProvider = resampler.ToSampleProvider();
             }
 
             public Uri SourceUri { get; }
+
+            public float Volume
+            {
+                get => _audioFileReader.Volume;
+                set
+                {
+                    value = ValueClamper.Clamp(value, 0, 1);
+                    _audioFileReader.Volume = value;
+                }
+            }
+
+            public WaveFormat WaveFormat => _outputSampleProvider.WaveFormat;
+
+            public int Read(float[] buffer, int offset, int count)
+            {
+                int readCount = _outputSampleProvider.Read(buffer, offset, count);
+                int padding = count - readCount;
+                if (padding > 0)
+                {
+                    _audioFileReader.Position = 0;
+                    _audioFileReader.Read(buffer, readCount, padding);
+                }
+
+                return count;
+            }
+
+            public void Dispose()
+            {
+                _outputSampleProvider = null!;
+                _audioFileReader?.Close();
+                _audioFileReader?.Dispose();
+                _audioFileReader = null!;
+            }
+
+            #region NonPublic
+            private ISampleProvider _outputSampleProvider;
+            private AudioFileReader _audioFileReader;
+            #endregion
         }
         #endregion
     }
