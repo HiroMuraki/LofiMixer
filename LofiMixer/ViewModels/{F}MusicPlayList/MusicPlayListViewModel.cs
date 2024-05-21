@@ -1,25 +1,22 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using HM.AppComponents;
+using HM.AppComponents.AppService;
+using HM.AppComponents.AppService.Services;
+using HM.Common;
 using LofiMixer.Models;
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 
 namespace LofiMixer.ViewModels;
 
-public sealed class MusicPlayListReloadedArgs
+public sealed class MusicPlayListViewModel :
+    ObservableObject,
+    ISignalReceiver<MusicPlayedSignalArgs>
 {
-    public MusicPlayListReloadedArgs(IReadOnlyCollection<MusicViewModel> musicList)
+    public MusicPlayListViewModel()
     {
-        MusicList = musicList.ToArray();
+        App.Current.Signals.MusicPlayed.Register(this);
     }
-
-    public IReadOnlyCollection<MusicViewModel> MusicList { get; }
-}
-
-public sealed class MusicPlayListViewModel : ObservableObject
-{
-    public static Signal<StatesChanged<MusicPlayListViewModel>> StatesChanged { get; } = new();
-
-    public static Signal<MusicPlayListReloadedArgs> MusicPlayListReloaded { get; } = new();
 
     public IEnumerable<MusicViewModel> MusicList => _musicList;
 
@@ -29,7 +26,10 @@ public sealed class MusicPlayListViewModel : ObservableObject
         set
         {
             SetProperty(ref _musicLoopMode, value);
-            StatesChanged.Emit(new StatesChanged<MusicPlayListViewModel>(this));
+            App.Current.Signals.MusicPlayerSettingsChanged.Emit(new MusicPlayerSettingsChangedArgs
+            {
+                MusicLoopMode = MusicLoopMode,
+            });
         }
     }
 
@@ -38,17 +38,13 @@ public sealed class MusicPlayListViewModel : ObservableObject
         get => _musicVolume;
         set
         {
-            if (value < 0)
-            {
-                value = 0;
-            }
-            else if (value > 1)
-            {
-                value = 1;
-            }
+            value = ValueClamper.Clamp(value, 0, 1);
 
             SetProperty(ref _musicVolume, value);
-            StatesChanged.Emit(new StatesChanged<MusicPlayListViewModel>(this));
+            App.Current.Signals.MusicPlayerSettingsChanged.Emit(new MusicPlayerSettingsChangedArgs
+            {
+                Volume = MusicVolume,
+            });
         }
     }
 
@@ -69,8 +65,15 @@ public sealed class MusicPlayListViewModel : ObservableObject
             await Task.Delay(1);
         }
 
-        StatesChanged.Emit(new StatesChanged<MusicPlayListViewModel>(this));
-        MusicPlayListReloaded.Emit(new MusicPlayListReloadedArgs(_musicList));
+        App.Current.Signals.MusicPlayerSettingsChanged.Emit(new MusicPlayerSettingsChangedArgs
+        {
+            Volume = MusicVolume,
+            MusicLoopMode = MusicLoopMode,
+        });
+        App.Current.Signals.MusicPlayListReloaded.Emit(new MusicPlayListReloadedArgs
+        {
+            MusicFiles = _musicList.Select(x => x.MusicUri).ToImmutableArray(),
+        });
     }
 
     #region NonPublic
@@ -81,5 +84,20 @@ public sealed class MusicPlayListViewModel : ObservableObject
     private readonly ObservableCollection<MusicViewModel> _musicList = [];
     private float _musicVolume = 1;
     private MusicLoopMode _musicLoopMode = MusicLoopMode.Order;
+    void ISignalReceiver<MusicPlayedSignalArgs>.Receive(MusicPlayedSignalArgs signalArg)
+    {
+        MusicViewModel? item = _musicList.FirstOrDefault(x => x.MusicUri.AbsolutePath == signalArg.PlayingMusicFile.AbsolutePath);
+        if (item is not null)
+        {
+            item.IsSelected = true;
+        }
+        else
+        {
+            App.Current.ServiceProvider.GetServiceThen<IErrorNotifier>(errorNotifier =>
+            {
+                errorNotifier.NotifyError(new InvalidOperationException($"Music {signalArg.PlayingMusicFile.AbsoluteUri} was not found in current play list"));
+            });
+        }
+    }
     #endregion
 }

@@ -11,7 +11,7 @@ public sealed class AmbientRemixer :
 {
     public AmbientRemixer()
     {
-        AmbientSoundViewModel.StateChanged.Register(this);
+        App.Current.Signals.StateChanged.Register(this);
     }
 
     public void Dispose()

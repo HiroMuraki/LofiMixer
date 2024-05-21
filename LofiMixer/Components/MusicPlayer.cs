@@ -1,7 +1,8 @@
 ﻿using HM.AppComponents;
 using HM.AppComponents.AppService;
+using HM.AppComponents.AppService.Services;
+using HM.Common;
 using LofiMixer.Models;
-using LofiMixer.ViewModels;
 using System.Collections.Immutable;
 
 namespace LofiMixer.Components;
@@ -10,13 +11,13 @@ public sealed class MusicPlayer :
     IAppComponent,
     ISignalReceiver<PlayMusicRequestedArgs>,
     ISignalReceiver<MusicPlayListReloadedArgs>,
-    ISignalReceiver<StatesChanged<MusicPlayListViewModel>>
+    ISignalReceiver<MusicPlayerSettingsChangedArgs>
 {
     public MusicPlayer()
     {
-        MusicViewModel.PlayMusicRequested.Register(this);
-        MusicPlayListViewModel.MusicPlayListReloaded.Register(this);
-        MusicPlayListViewModel.StatesChanged.Register(this);
+        App.Current.Signals.PlayMusicRequested.Register(this);
+        App.Current.Signals.MusicPlayListReloaded.Register(this);
+        App.Current.Signals.MusicPlayerSettingsChanged.Register(this);
     }
 
     public void Dispose()
@@ -28,45 +29,32 @@ public sealed class MusicPlayer :
     private IAudioPlayer? _player;
     private int _currentMusicIndex;
     private MusicLoopMode _loopMode;
-    private IImmutableList<MusicViewModel> _musicList = [];
+    private IImmutableList<Uri> _musicList = [];
     private void Reset()
     {
         _player?.Dispose();
         _player = null;
+        _currentMusicIndex = 0;
+        _musicList = [];
     }
-    private void Play(MusicViewModel music)
+    private void Play(Uri musicFile)
     {
-        int index = _musicList.IndexOf(music);
+        int index = _musicList.IndexOf(musicFile);
         if (index == -1)
         {
-            throw new InvalidOperationException($"Provided music was not found in current music list");
+            App.Current.ServiceProvider.GetServiceThen<IErrorNotifier>(errorNotifier =>
+            {
+                errorNotifier.NotifyError(new InvalidOperationException($"Provided music was not found in current music list"));
+            });
+            return;
         }
 
         if (_currentMusicIndex == index)
         {
             return;
         }
+
         _currentMusicIndex = index;
-        UpdatePlayer();
-    }
-    private void PlayFirstMusic()
-    {
-        if (_musicList.Count <= 0)
-        {
-            return;
-        }
-
-        switch (_loopMode)
-        {
-            case MusicLoopMode.Order:
-            case MusicLoopMode.Single:
-                _currentMusicIndex = 0;
-                break;
-            case MusicLoopMode.Shuffle:
-                _currentMusicIndex = Random.Shared.Next(0, _musicList.Count);
-                break;
-        }
-
         UpdatePlayer();
     }
     private void PlayNextMusic()
@@ -93,10 +81,17 @@ public sealed class MusicPlayer :
     private void UpdatePlayer()
     {
         _currentMusicIndex %= _musicList.Count;
-        MusicViewModel music = _musicList[_currentMusicIndex];
-        music.IsSelected = true;
-        _player?.Open(music.MusicUri);
-        _player?.Play();
+        Uri musicFile = _musicList[_currentMusicIndex];
+
+        if (_player is not null)
+        {
+            _player.Open(musicFile);
+            _player.Play();
+            App.Current.Signals.MusicPlayed.Emit(new MusicPlayedSignalArgs
+            {
+                PlayingMusicFile = musicFile
+            });
+        }
     }
     private void HandlePlaybackStateChanged(object? sender, PlaybackStateChangedEventArgs e)
     {
@@ -113,39 +108,28 @@ public sealed class MusicPlayer :
     }
     void ISignalReceiver<PlayMusicRequestedArgs>.Receive(PlayMusicRequestedArgs signalArg)
     {
-        Play(signalArg.Music);
+        Play(signalArg.MusicFile);
     }
     void ISignalReceiver<MusicPlayListReloadedArgs>.Receive(MusicPlayListReloadedArgs signalArg)
     {
         Reset();
 
-        _musicList = signalArg.MusicList.ToImmutableList();
+        _musicList = signalArg.MusicFiles.ToImmutableList();
         App.Current.ServiceProvider.GetServiceThen<IAudioPlayerFactory>(audioPlayerFactory =>
         {
             _player = audioPlayerFactory.CreatePlayer();
             _player.Volume = 1;
             _player.PlaybackStateChanged += HandlePlaybackStateChanged;
-            PlayFirstMusic();
         });
     }
-    void ISignalReceiver<StatesChanged<MusicPlayListViewModel>>.Receive(StatesChanged<MusicPlayListViewModel> signalArg)
+    void ISignalReceiver<MusicPlayerSettingsChangedArgs>.Receive(MusicPlayerSettingsChangedArgs signalArg)
     {
-        if (_player is not null)
+        if (_player is not null && signalArg.Volume.HasValue)
         {
-            float musicVolume = signalArg.Sender.MusicVolume;
-            if (musicVolume < 0)
-            {
-                musicVolume = 0;
-            }
-            else if (musicVolume > 1)
-            {
-                musicVolume = 1;
-            }
-
-            _player.Volume = musicVolume;
+            _player.Volume = ValueClamper.Clamp(signalArg.Volume.Value, 0, 1);
         }
 
-        _loopMode = signalArg.Sender.MusicLoopMode;
+        _loopMode = signalArg?.MusicLoopMode ?? _loopMode;
     }
     #endregion
 }

@@ -51,6 +51,7 @@
                                             HorizontalContentAlignment="Left"
                                             VerticalContentAlignment="Center"
                                             Background="White"
+                                            Command="{Binding PlayCommand}"
                                             Content="{Binding MusicName}"
                                             IsChecked="{Binding IsSelected}" />
                                     </Border>

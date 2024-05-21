@@ -4,7 +4,8 @@ using LofiMixer.Models;
 
 namespace LofiMixer.ViewModels;
 
-public sealed class MainWindowViewModel : ObservableObject
+public sealed class MainWindowViewModel :
+    ObservableObject
 {
     public MusicPlayListViewModel MusicPlayList { get; } = new();
 
@@ -49,7 +50,9 @@ public sealed class MainWindowViewModel : ObservableObject
                     ambientSound.Volume = volume;
                 }
             }
-            MusicPlayList.MusicList.FirstOrDefault(m => m.MusicName == data.MusicFileName)?.Play();
+
+            (MusicPlayList.MusicList.FirstOrDefault(m => m.MusicName == data.MusicFileName)
+                ?? MusicPlayList.MusicList.FirstOrDefault())?.Play();
         });
     }
 }

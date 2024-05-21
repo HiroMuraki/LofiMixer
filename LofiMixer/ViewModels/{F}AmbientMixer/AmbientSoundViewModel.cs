@@ -1,12 +1,11 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using HM.AppComponents;
+using HM.Common;
 
 namespace LofiMixer.ViewModels;
 
 public sealed class AmbientSoundViewModel : ObservableObject
 {
-    public static Signal<StatesChanged<AmbientSoundViewModel>> StateChanged { get; } = new();
-
     public AmbientSoundViewModel(Uri musicUri)
     {
         _musicUri = musicUri;
@@ -29,17 +28,9 @@ public sealed class AmbientSoundViewModel : ObservableObject
         get => _volume;
         set
         {
-            if (value < 0)
-            {
-                value = 0;
-            }
-            else if (value > 1)
-            {
-                value = 1;
-            }
-
+            value = ValueClamper.Clamp(value, 0, 1);
             SetProperty(ref _volume, value);
-            StateChanged.Emit(new StatesChanged<AmbientSoundViewModel>(this));
+            App.Current.Signals.StateChanged.Emit(new StatesChanged<AmbientSoundViewModel>(this));
         }
     }
 

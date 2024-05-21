@@ -1,5 +1,6 @@
 ﻿using LofiMixer.Components;
 using NAudio.Wave;
+using System.Diagnostics;
 using PlaybackState = LofiMixer.Components.PlaybackState;
 
 namespace LofiMixer.Wpf.Services;
@@ -80,8 +81,10 @@ public class NAudioPlayerFactory : IAudioPlayerFactory
             var waveStream = new AudioFileReader(filePath.LocalPath);
             wavePlayer.PlaybackStopped += (_, _) =>
             {
-                OnPlaybackStateChanged(PlaybackState.Stopped);
-                OnPlaybackStateChanged(PlaybackState.Finished);
+                if (CurrentTime >= TotalTime)
+                {
+                    OnPlaybackStateChanged(PlaybackState.Finished);
+                }
             };
             wavePlayer.Init(waveStream);
 
