@@ -1,6 +1,4 @@
-﻿using HM.Common;
-
-namespace LofiMixer.Components;
+﻿namespace LofiMixer.Components;
 
 public enum PlaybackState
 {
