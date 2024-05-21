@@ -1,8 +1,7 @@
 ﻿using HM.AppComponents;
 using HM.AppComponents.AppService.Services;
-using LofiMixer.Components;
 using LofiMixer.ViewModels;
-using LofiMixer.Wpf.Services;
+using LofiMixer.Wpf.Components;
 using System.Diagnostics;
 using System.Windows;
 
@@ -13,12 +12,11 @@ public partial class App : Application
     private async void Application_Startup(object sender, StartupEventArgs e)
     {
         LofiMixer.App.Current.AppPaths.EnsureAppPathsCreated();
-        LofiMixer.App.Current.Components.AddComponent(new AmbientRemixer());
-        LofiMixer.App.Current.Components.AddComponent(new MusicPlayer());
-        LofiMixer.App.Current.ServiceProvider.RegisterService<IAudioPlayerFactory>(new NAudioPlayerFactory());
+        LofiMixer.App.Current.Components.AddComponent(new SoundRemixer());
         LofiMixer.App.Current.ServiceProvider.RegisterService<IErrorNotifier>(ErrorNotifier.Create(e =>
         {
             Debug.WriteLine(e);
+            MessageBox.Show(e.Message);
         }));
 
         _mainWindowViewModel = new MainWindowViewModel();

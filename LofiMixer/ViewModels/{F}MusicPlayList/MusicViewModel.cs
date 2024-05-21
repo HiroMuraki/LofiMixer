@@ -1,12 +1,11 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HM.AppComponents;
-using System.Diagnostics;
 
 namespace LofiMixer.ViewModels;
 
-public sealed partial class MusicViewModel : 
-    ObservableObject, 
+public sealed partial class MusicViewModel :
+    ObservableObject,
     IMutexSelectable
 {
     public MusicViewModel(Uri musicFile, MutexSelector? mutexSelector)
@@ -55,7 +54,7 @@ public sealed partial class MusicViewModel :
     [RelayCommand]
     public void Play()
     {
-        App.Current.Signals.PlayMusicRequested.Emit(new PlayMusicRequestedArgs
+        App.Current.Signals.PlayMusicRequested.Emit(new()
         {
             MusicFile = MusicUri
         });

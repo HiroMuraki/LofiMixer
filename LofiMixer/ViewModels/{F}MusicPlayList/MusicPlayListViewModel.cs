@@ -26,7 +26,7 @@ public sealed class MusicPlayListViewModel :
         set
         {
             SetProperty(ref _musicLoopMode, value);
-            App.Current.Signals.MusicPlayerSettingsChanged.Emit(new MusicPlayerSettingsChangedArgs
+            App.Current.Signals.MusicPlayerSettingsChanged.Emit(new()
             {
                 MusicLoopMode = MusicLoopMode,
             });
@@ -41,7 +41,7 @@ public sealed class MusicPlayListViewModel :
             value = ValueClamper.Clamp(value, 0, 1);
 
             SetProperty(ref _musicVolume, value);
-            App.Current.Signals.MusicPlayerSettingsChanged.Emit(new MusicPlayerSettingsChangedArgs
+            App.Current.Signals.MusicPlayerSettingsChanged.Emit(new()
             {
                 Volume = MusicVolume,
             });
@@ -65,12 +65,12 @@ public sealed class MusicPlayListViewModel :
             await Task.Delay(1);
         }
 
-        App.Current.Signals.MusicPlayerSettingsChanged.Emit(new MusicPlayerSettingsChangedArgs
+        App.Current.Signals.MusicPlayerSettingsChanged.Emit(new()
         {
             Volume = MusicVolume,
             MusicLoopMode = MusicLoopMode,
         });
-        App.Current.Signals.MusicPlayListReloaded.Emit(new MusicPlayListReloadedArgs
+        App.Current.Signals.MusicPlayListReloaded.Emit(new()
         {
             MusicFiles = _musicList.Select(x => x.MusicUri).ToImmutableArray(),
         });

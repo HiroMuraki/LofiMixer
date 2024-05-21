@@ -1,25 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using HM.AppComponents;
 using HM.AppComponents.AppDataSerializer;
 using LofiMixer.Models;
 using System.Collections.ObjectModel;
 
 namespace LofiMixer.ViewModels;
 
-public sealed class AmbientMixerResetArgs
-{
-    public AmbientMixerResetArgs(IReadOnlyCollection<AmbientSoundViewModel> ambientSounds)
-    {
-        AmbientSounds = ambientSounds;
-    }
-
-    public IReadOnlyCollection<AmbientSoundViewModel> AmbientSounds { get; }
-}
-
 public sealed class AmbientMixerViewModel : ObservableObject
 {
-    public static Signal<AmbientMixerResetArgs> AmbientMixerReset { get; } = new();
-
     public IEnumerable<AmbientSoundViewModel> AmbientSounds => _ambientSounds;
 
     internal async Task ReloadAmbientSoundsAsync()
@@ -45,7 +32,10 @@ public sealed class AmbientMixerViewModel : ObservableObject
                 _ambientSounds.Add(ambientSound);
             }
         });
-        AmbientMixerReset.Emit(new AmbientMixerResetArgs(_ambientSounds));
+        App.Current.Signals.AmbientSoundsReloaded.Emit(new()
+        {
+            AmbientSoundFiles = [_ambientSounds.Select(x => x.SoundUri).First()]
+        });
     }
 
     #region NonPublic

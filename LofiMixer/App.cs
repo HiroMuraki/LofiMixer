@@ -1,7 +1,6 @@
 ﻿using HM.AppComponents;
 using HM.AppComponents.AppService;
 using LofiMixer.Models;
-using LofiMixer.ViewModels;
 
 namespace LofiMixer;
 
@@ -10,23 +9,34 @@ public sealed class MusicPlayedSignalArgs
     public required Uri PlayingMusicFile { get; init; }
 }
 
-public sealed class MusicPlayListReloadedArgs
+public sealed class MusicPlayListReloadedSignalArgs
 {
     public required IReadOnlyCollection<Uri> MusicFiles { get; init; }
 }
 
-public sealed class MusicPlayerSettingsChangedArgs
+public sealed class MusicPlayerSettingsChangedSignalArgs
 {
     public MusicLoopMode? MusicLoopMode { get; init; }
 
     public float? Volume { get; init; }
 }
 
-public sealed class PlayMusicRequestedArgs
+public sealed class PlayMusicRequestedSignalArgs
 {
     public required Uri MusicFile { get; init; }
 }
 
+public sealed class AmbientSoundsReloadedSignalArgs
+{
+    public required IReadOnlyCollection<Uri> AmbientSoundFiles { get; init; }
+}
+
+public sealed class AmbientSoundSettingChangedSignalArgs
+{
+    public required Uri SoundUri { get; init; }
+
+    public float? Volume { get; init; }
+}
 
 public sealed class App
 {
@@ -39,15 +49,17 @@ public sealed class App
 
     public sealed class AppSignals
     {
-        public Signal<PlayMusicRequestedArgs> PlayMusicRequested { get; } = new();
+        public Signal<PlayMusicRequestedSignalArgs> PlayMusicRequested { get; } = new();
 
-        public Signal<MusicPlayerSettingsChangedArgs> MusicPlayerSettingsChanged { get; } = new();
+        public Signal<MusicPlayerSettingsChangedSignalArgs> MusicPlayerSettingsChanged { get; } = new();
 
-        public Signal<MusicPlayListReloadedArgs> MusicPlayListReloaded { get; } = new();
+        public Signal<MusicPlayListReloadedSignalArgs> MusicPlayListReloaded { get; } = new();
 
         public Signal<MusicPlayedSignalArgs> MusicPlayed { get; } = new();
 
-        public Signal<StatesChanged<AmbientSoundViewModel>> StateChanged { get; } = new();
+        public Signal<AmbientSoundsReloadedSignalArgs> AmbientSoundsReloaded { get; } = new();
+
+        public Signal<AmbientSoundSettingChangedSignalArgs> AmbientSoundStateChanged { get; } = new();
     }
 
     public static App Current { get; } = new();
