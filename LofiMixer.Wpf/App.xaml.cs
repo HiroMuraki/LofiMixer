@@ -13,8 +13,8 @@ public partial class App : Application
 {
     private async void Application_Startup(object sender, StartupEventArgs e)
     {
-        LofiMixer.App.Current.Components.Add(new AmbientRemixer());
-        LofiMixer.App.Current.Components.Add(new MusicPlayer());
+        LofiMixer.App.Current.Components.AddComponent(new AmbientRemixer());
+        LofiMixer.App.Current.Components.AddComponent(new MusicPlayer());
         LofiMixer.App.Current.ServiceProvider.RegisterService<IAudioPlayerFactory>(new NAudioPlayer.Factory());
         LofiMixer.App.Current.ServiceProvider.RegisterService<IErrorNotifier>(ErrorNotifier.Create(e =>
         {

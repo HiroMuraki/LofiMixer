@@ -23,5 +23,5 @@ public sealed class App
         [PathNames.ConfigFile] = new([Environment.CurrentDirectory, "Config.json"], AppPathType.File),
     };
 
-    public AppComponentCollection Components { get; } = [];
+    public AppComponents Components { get; } = [];
 }
