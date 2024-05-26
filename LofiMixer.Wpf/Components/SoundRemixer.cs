@@ -2,12 +2,9 @@
 using HM.AppComponents.AppService;
 using HM.AppComponents.AppService.Services;
 using HM.Common;
-using LofiMixer.Models;
-using Microsoft.VisualBasic;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using System.Collections.Immutable;
-using System.Windows.Media;
 
 namespace LofiMixer.Wpf.Components;
 
