@@ -3,9 +3,11 @@ using HM.AppComponents.AppService;
 using HM.AppComponents.AppService.Services;
 using HM.Common;
 using LofiMixer.Models;
+using Microsoft.VisualBasic;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using System.Collections.Immutable;
+using System.Windows.Media;
 
 namespace LofiMixer.Wpf.Components;
 
@@ -64,98 +66,78 @@ public sealed class SoundRemixer :
     {
         public MusicPlayer(IEnumerable<Uri> musicFiles)
         {
-            _musicFiles = musicFiles.ToImmutableArray();
+            Play(musicFiles);
         }
-
-        public MusicLoopMode LoopMode { get; set; }
 
         public float Volume
         {
-            get => _currentAudioFile?.Volume ?? -1;
+            get => _cycledSampleProvider?.Volume ?? -1;
             set
             {
                 value = ValueClamper.Clamp(value, 0, 1);
-                if (_currentAudioFile is not null)
+                if (_cycledSampleProvider is not null)
                 {
-                    _currentAudioFile.Volume = value;
+                    _cycledSampleProvider.Volume = value;
                 }
             }
         }
 
         public void Play(Uri uri)
         {
-            int index = _musicFiles.IndexOf(uri);
-            if (index == -1)
+            if (_cycledSampleProvider is null)
+            {
+                return;
+            }
+
+            var musicQueue = new Queue<Uri>(_cycledSampleProvider.MusicList);
+            for (int i = 0; i < musicQueue.Count; i++)
+            {
+                if (musicQueue.Peek().AbsolutePath != uri.AbsolutePath)
+                {
+                    musicQueue.Enqueue(musicQueue.Dequeue());
+                }
+            }
+            if (musicQueue.Peek().AbsolutePath == uri.AbsolutePath)
+            {
+                Reset();
+                Play(musicQueue);
+                LofiMixer.App.Current.Signals.MusicPlayed.Emit(new()
+                {
+                    PlayingMusicFile = musicQueue.Peek(),
+                });
+            }
+            else
             {
                 LofiMixer.App.Current.ServiceProvider.GetServiceThen<IErrorNotifier>(errorNotifier =>
                 {
                     errorNotifier.NotifyError(new InvalidOperationException($"Uri {uri} was not found"));
                 });
             }
-            _currentMusicIndex = index;
-            Play();
         }
 
         public void Dispose()
         {
-            ResetPlayer();
-            _musicFiles.Clear();
-            _musicFiles = null!;
+            Reset();
         }
 
         #region NonPublic
-        private int _currentMusicIndex;
+        private CycledSampleProvider? _cycledSampleProvider;
         private IWavePlayer? _wavePlayer;
-        private AudioFileReader? _currentAudioFile;
-        private IImmutableList<Uri> _musicFiles;
-        private int NextMusicIndex()
-        {
-            switch (LoopMode)
-            {
-                case MusicLoopMode.Order:
-                    _currentMusicIndex++;
-                    break;
-                case MusicLoopMode.Single:
-                    break;
-                case MusicLoopMode.Shuffle:
-                    _currentMusicIndex = Random.Shared.Next(0, _musicFiles.Count);
-                    break;
-            }
-
-            _currentMusicIndex %= _musicFiles.Count;
-            return _currentMusicIndex;
-        }
-        private void ResetPlayer()
+        private void Reset()
         {
             _wavePlayer?.Stop();
             _wavePlayer?.Dispose();
-            _wavePlayer = null!;
+            _wavePlayer = null;
 
-            _currentAudioFile?.Close();
-            _currentAudioFile?.Dispose();
-            _currentAudioFile = null!;
+            _cycledSampleProvider?.Dispose();
+            _cycledSampleProvider = null;
         }
-        private void Play()
+        private void Play(IEnumerable<Uri> musicFiles)
         {
-            ResetPlayer();
-
+            _cycledSampleProvider = new CycledSampleProvider(musicFiles, WaveFormat.CreateIeeeFloatWaveFormat(44100, 2));
             _wavePlayer = new WaveOutEvent();
-            _wavePlayer.PlaybackStopped += (_, e) =>
-            {
-                if (_currentAudioFile?.CurrentTime >= _currentAudioFile?.TotalTime)
-                {
-                    NextMusicIndex();
-                    Play();
-                }
-            };
-            _currentAudioFile = new AudioFileReader(_musicFiles[_currentMusicIndex].LocalPath);
-            _wavePlayer.Init(_currentAudioFile);
+            _wavePlayer.Init(_cycledSampleProvider);
             _wavePlayer.Play();
-
-            LofiMixer.App.Current.Signals.MusicPlayed.Emit(new()
-            {
-                PlayingMusicFile = _musicFiles[_currentMusicIndex],
-            });
         }
         #endregion
     }
@@ -164,8 +146,8 @@ public sealed class SoundRemixer :
         public AmbientSoundMixer(IEnumerable<Uri> ambientSoundFiles)
         {
             var normalizedWaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(44100, 2);
-            AmbientSoundSampleProvider[] sampleProviders = ambientSoundFiles
-                .Select(x => new AmbientSoundSampleProvider(x, normalizedWaveFormat))
+            LoopedSampleProvider[] sampleProviders = ambientSoundFiles
+                .Select(x => new LoopedSampleProvider(x, normalizedWaveFormat))
                 .ToArray();
             _mixingSampleProvider = new MixingSampleProvider(sampleProviders);
             _mixedAmbientSoundPlayer = new WaveOutEvent();
@@ -175,8 +157,8 @@ public sealed class SoundRemixer :
 
         public void SetChannelVolume(Uri musicFile, float? volume)
         {
-            AmbientSoundSampleProvider? targetAudio = _mixingSampleProvider?.MixerInputs
-                .Cast<AmbientSoundSampleProvider>()
+            LoopedSampleProvider? targetAudio = _mixingSampleProvider?.MixerInputs
+                .Cast<LoopedSampleProvider>()
                 .FirstOrDefault(x => x.SourceUri == musicFile);
 
             if (targetAudio is not null && volume.HasValue)
@@ -208,60 +190,168 @@ public sealed class SoundRemixer :
             _mixedAmbientSoundPlayer = null;
 
         }
-        private class AmbientSoundSampleProvider :
-            ISampleProvider,
-            IDisposable
+        #endregion
+    }
+    private sealed class LoopedSampleProvider :
+        ISampleProvider,
+        IDisposable
+    {
+        public LoopedSampleProvider(Uri sourceUri, WaveFormat waveFormat)
         {
-            public AmbientSoundSampleProvider(Uri sourceUri, WaveFormat waveFormat)
+            SourceUri = sourceUri;
+            _audioFileReader = new AudioFileReader(sourceUri.LocalPath);
+            _outputSampleProvider = new MediaFoundationResampler(_audioFileReader, waveFormat)
             {
-                SourceUri = sourceUri;
-                _audioFileReader = new AudioFileReader(sourceUri.LocalPath);
-                var resampler = new MediaFoundationResampler(_audioFileReader, waveFormat)
-                {
-                    ResamplerQuality = 60
-                };
-                _outputSampleProvider = resampler.ToSampleProvider();
+                ResamplerQuality = 60
+            }.ToSampleProvider();
+            WaveFormat = waveFormat;
+        }
+
+        public Uri SourceUri { get; }
+
+        public float Volume
+        {
+            get => _audioFileReader.Volume;
+            set
+            {
+                value = ValueClamper.Clamp(value, 0, 1);
+                _audioFileReader.Volume = value;
+            }
+        }
+
+        public WaveFormat WaveFormat { get; }
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int readCount = _audioFileReader.Read(buffer, offset, count);
+            int padding = count - readCount;
+            while (padding > 0)
+            {
+                _audioFileReader.Position = 0;
+                readCount += _audioFileReader.Read(buffer, readCount, padding);
+                padding = count - readCount;
             }
 
-            public Uri SourceUri { get; }
+            return count;
+        }
 
-            public float Volume
+        public void Dispose()
+        {
+            _outputSampleProvider = null!;
+            _audioFileReader?.Close();
+            _audioFileReader?.Dispose();
+            _audioFileReader = null!;
+        }
+
+        #region NonPublic
+        private ISampleProvider _outputSampleProvider;
+        private AudioFileReader _audioFileReader;
+        #endregion
+    }
+    private sealed class CycledSampleProvider :
+        ISampleProvider,
+        IDisposable
+    {
+        public enum CycleMode
+        {
+            Order,
+            Single,
+            Random,
+            Shuffle,
+        }
+
+        public CycledSampleProvider(IEnumerable<Uri> audioFiles, WaveFormat waveFormat)
+        {
+            _audioFiles = audioFiles.ToImmutableArray();
+            WaveFormat = waveFormat;
+            _currentAudioIndex = -1;
+            ReadNextAudio();
+        }
+
+        public IEnumerable<Uri> MusicList => _audioFiles;
+
+        public float Volume
+        {
+            get => _volume;
+            set
             {
-                get => _audioFileReader.Volume;
-                set
+                value = ValueClamper.Clamp(value, 0, 1);
+                _volume = value;
+                if (_currentAudioFileReader is not null)
                 {
-                    value = ValueClamper.Clamp(value, 0, 1);
-                    _audioFileReader.Volume = value;
+                    _currentAudioFileReader.Volume = value;
                 }
             }
+        }
 
-            public WaveFormat WaveFormat => _outputSampleProvider.WaveFormat;
+        public CycleMode Mode { get; set; } = CycleMode.Order;
 
-            public int Read(float[] buffer, int offset, int count)
+        public WaveFormat WaveFormat { get; }
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            if (_outputSampleProvider is null)
             {
-                int readCount = _outputSampleProvider.Read(buffer, offset, count);
-                int padding = count - readCount;
-                if (padding > 0)
-                {
-                    _audioFileReader.Position = 0;
-                    _audioFileReader.Read(buffer, readCount, padding);
-                }
-
-                return count;
+                return 0;
             }
 
-            public void Dispose()
+            int readCount = _outputSampleProvider.Read(buffer, offset, count);
+            int padding = count - readCount;
+            while (padding > 0)
             {
-                _outputSampleProvider = null!;
-                _audioFileReader?.Close();
-                _audioFileReader?.Dispose();
-                _audioFileReader = null!;
+                ReadNextAudio();
+                readCount += _outputSampleProvider.Read(buffer, readCount, padding);
+                padding = count - readCount;
             }
 
-            #region NonPublic
-            private ISampleProvider _outputSampleProvider;
-            private AudioFileReader _audioFileReader;
-            #endregion
+            return count;
+        }
+
+        public void Dispose()
+        {
+            _outputSampleProvider = null;
+            _currentAudioFileReader?.Close();
+            _currentAudioFileReader?.Dispose();
+            _currentAudioFileReader = null;
+            _currentAudioIndex = -1;
+            _audioFiles = [];
+        }
+
+        #region NonPublic
+        private float _volume = 1f;
+        private ISampleProvider? _outputSampleProvider;
+        private AudioFileReader? _currentAudioFileReader;
+        private int _currentAudioIndex;
+        private ImmutableArray<Uri> _audioFiles;
+        private void ReadNextAudio()
+        {
+            if (_audioFiles.Length == 0)
+            {
+                return;
+            }
+
+            _currentAudioFileReader?.Close();
+            _currentAudioFileReader?.Dispose();
+
+            _currentAudioIndex = Mode switch
+            {
+                CycleMode.Single => _currentAudioIndex == -1 ? 0 : _currentAudioIndex,
+                CycleMode.Order => _currentAudioIndex + 1,
+                CycleMode.Random => Random.Shared.Next(0, _audioFiles.Length),
+                CycleMode.Shuffle => Random.Shared.Next(0, _audioFiles.Length),
+                _ => _currentAudioIndex,
+            };
+            _currentAudioIndex %= _audioFiles.Length;
+
+            Uri music = _audioFiles[_currentAudioIndex];
+            _currentAudioFileReader = new AudioFileReader(music.LocalPath)
+            {
+                Volume = _volume,
+            };
+            _outputSampleProvider = new MediaFoundationResampler(_currentAudioFileReader, WaveFormat)
+            {
+                ResamplerQuality = 60
+            }.ToSampleProvider();
         }
         #endregion
     }
